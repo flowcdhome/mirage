@@ -6,7 +6,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Display") {
+                Section {
                     VStack(alignment: .leading) {
                         HStack { Text("Stretch X"); Spacer(); Text(String(format: "%.2f", store.stretchX)).monospacedDigit() }
                         Slider(value: $store.stretchX, in: 0.6...1.6)
@@ -17,15 +17,19 @@ struct SettingsView: View {
                     }
                     Button("Snap to 4:3") { store.snapStretch43() }
                     Button("Reset stretch") { store.resetStretch() }
+                } header: {
+                    Text("Display")
                 } footer: {
                     Text("App-exit swipe zones follow this stretch - they're part of the same scaled surface.")
                 }
 
-                Section("Icons") {
+                Section {
                     Toggle("Use custom icon color", isOn: $store.useCustomIconColor)
                     if store.useCustomIconColor {
                         ColorPicker("Icon color", selection: $store.iconColor, supportsOpacity: false)
                     }
+                } header: {
+                    Text("Icons")
                 }
 
                 Section {
