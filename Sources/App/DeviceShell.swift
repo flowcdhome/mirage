@@ -5,7 +5,7 @@ struct DeviceShell: View {
 
     var body: some View {
         GeometryReader { geo in
-            let barHeight: CGFloat = store.classicHomeButton ? 86 : 0
+            let barHeight: CGFloat = store.classicHomeButton ? store.homeButtonBarHeight : 0
             let contentHeight = geo.size.height - barHeight
 
             VStack(spacing: 0) {

@@ -53,6 +53,7 @@ final class TweakStore: ObservableObject {
     var wiggleEnabled: Bool { isOn("WiggleMode") }
     var aniTime: Bool { isOn("AniTime") }
     var classicHomeButton: Bool { isOn("ClassicHomeButton") }
+    @Published var homeButtonBarHeight: CGFloat = 86
 
     var accent: Color { neon ? Color(red: 0.6, green: 1, blue: 0.3) : .blue }
 

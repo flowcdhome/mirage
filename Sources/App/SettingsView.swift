@@ -40,6 +40,19 @@ struct SettingsView: View {
                     Text("Icons")
                 }
 
+                if store.classicHomeButton {
+                    Section {
+                        VStack(alignment: .leading) {
+                            HStack { Text("Home button height"); Spacer(); Text("\(Int(store.homeButtonBarHeight)) pt").monospacedDigit() }
+                            Slider(value: $store.homeButtonBarHeight, in: 60...170, step: 1)
+                        }
+                    } header: {
+                        Text("Classic Home Button")
+                    } footer: {
+                        Text("Raises the button bar if it sits too low to tap comfortably.")
+                    }
+                }
+
                 Section {
                     ForEach(catalog) { t in
                         HStack(spacing: 14) {
