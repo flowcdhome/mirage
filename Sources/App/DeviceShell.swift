@@ -139,7 +139,7 @@ struct AppOverlayView: View {
 
     var body: some View {
         let closing = store.dragKind == .closeApp
-        let progress = closing ? store.dragProgress : 0
+        let progress: Double = closing ? Double(store.dragProgress) : 0
 
         Group {
             switch app.kind {
