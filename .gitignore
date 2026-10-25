@@ -1,0 +1,4 @@
+build/
+Mirage.xcodeproj/
+*.ipa
+Payload/

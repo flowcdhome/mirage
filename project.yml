@@ -1,0 +1,19 @@
+name: Mirage
+options:
+  bundleIdPrefix: com.flowcdhome
+targets:
+  Mirage:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources: [Sources/App]
+    info:
+      path: Sources/App/Info.plist
+      properties:
+        CFBundleDisplayName: Mirage
+        UILaunchScreen: {}
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.flowcdhome.mirage
+      MARKETING_VERSION: "0.2.0"
+      CURRENT_PROJECT_VERSION: "1"
+      TARGETED_DEVICE_FAMILY: "1"

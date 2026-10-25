@@ -1,0 +1,29 @@
+name: Build unsigned IPA
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch: {}
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - run: xcodegen generate
+      - name: Build unsigned .app
+        run: |
+          xcodebuild -project Mirage.xcodeproj -scheme Mirage -configuration Release \
+            -sdk iphoneos -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build
+      - name: Package .ipa
+        run: |
+          mkdir -p Payload
+          cp -r "build/Build/Products/Release-iphoneos/Mirage.app" Payload/
+          zip -r Mirage.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with: { name: Mirage-ipa, path: Mirage.ipa }
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        run: gh release create "${{ github.ref_name }}" Mirage.ipa --title "${{ github.ref_name }}" --notes "Unsigned IPA, sideload with LiveContainer or SideStore"
+        env: { GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
