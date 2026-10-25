@@ -12,6 +12,7 @@ struct HomeScreenView: View {
 
     let apps: [HomeApp] = [
         HomeApp(icon: "safari.fill", label: "Browser", kind: .browser),
+        HomeApp(icon: "sparkles", label: "Анимашки", kind: .animashki),
         HomeApp(icon: "message.fill", label: "Messages", kind: .placeholder),
         HomeApp(icon: "camera.fill", label: "Camera", kind: .placeholder),
         HomeApp(icon: "music.note", label: "Music", kind: .placeholder),
@@ -21,8 +22,8 @@ struct HomeScreenView: View {
         HomeApp(icon: "calendar", label: "Calendar", kind: .placeholder),
         HomeApp(icon: "photo.stack.fill", label: "Photos", kind: .placeholder),
         HomeApp(icon: "envelope.fill", label: "Mail", kind: .placeholder),
-        HomeApp(icon: "clock.fill", label: "Clock", kind: .placeholder),
         HomeApp(icon: "cloud.sun.fill", label: "Weather", kind: .placeholder),
+        HomeApp(icon: "gearshape.fill", label: "Settings", kind: .settings),
     ]
     let dockIcons = ["phone.fill", "wrench.and.screwdriver.fill", "gearshape.fill"]
     let cols = Array(repeating: GridItem(.flexible(), spacing: 22), count: 4)
@@ -34,25 +35,13 @@ struct HomeScreenView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                HStack {
-                    Text(Date(), format: .dateTime.hour().minute()).font(.caption).bold()
-                    Spacer()
-                    if store.badge {
-                        Image(systemName: "checkmark.seal.fill").font(.caption).foregroundStyle(.green)
-                    }
-                    Image(systemName: "wifi"); Image(systemName: "battery.75")
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal).padding(.top, 14).padding(.bottom, 6)
-
+                statusBar
                 ScrollView {
                     LazyVGrid(columns: cols, spacing: 26) {
                         ForEach(apps) { a in appIcon(a) }
-                        settingsIcon
                     }
                     .padding()
                 }
-
                 HStack(spacing: 22) {
                     ForEach(dockIcons, id: \.self) { name in
                         Image(systemName: name)
@@ -75,6 +64,25 @@ struct HomeScreenView: View {
         }
     }
 
+    // Approximation of a modern, Dynamic-Island-style status bar. I don't
+    // have verified details of iOS 27's exact visual redesign, so treat
+    // this as a stylistic guess, not a precise match.
+    private var statusBar: some View {
+        ZStack {
+            HStack {
+                Text(Date(), format: .dateTime.hour().minute()).font(.caption).bold()
+                Spacer()
+                if store.badge {
+                    Image(systemName: "checkmark.seal.fill").font(.caption2).foregroundStyle(.green)
+                }
+                Image(systemName: "wifi"); Image(systemName: "battery.75")
+            }
+            Capsule().fill(.black).frame(width: 110, height: 28)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal).padding(.top, 14).padding(.bottom, 10)
+    }
+
     private func appIcon(_ a: HomeApp) -> some View {
         Button {
             store.openApp(kind: a.kind, icon: a.icon, label: a.label)
@@ -89,19 +97,6 @@ struct HomeScreenView: View {
                     .animation(store.editMode ? .easeInOut(duration: 0.14).repeatForever(autoreverses: true) : .default,
                                value: store.editMode)
                 Text(a.label).font(.caption2).foregroundStyle(.white.opacity(0.8))
-            }
-        }
-    }
-
-    private var settingsIcon: some View {
-        Button { store.settingsOpen = true } label: {
-            VStack(spacing: 4) {
-                Image(systemName: "gearshape.fill")
-                    .font(.title2)
-                    .frame(width: 54, height: 54)
-                    .foregroundStyle(.white)
-                    .background(store.iconFill, in: RoundedRectangle(cornerRadius: store.roundIcons ? 16 : 6))
-                Text("Settings").font(.caption2).foregroundStyle(.white.opacity(0.8))
             }
         }
     }

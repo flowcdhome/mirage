@@ -15,10 +15,18 @@ let catalog: [Tweak] = [
     Tweak(name: "JailbreakBadge", author: "mirage team", summary: "Cosmetic 'jailbroken' badge in the status bar. Not real.", icon: "checkmark.seal.fill"),
     Tweak(name: "NeonAccent", author: "mirage team", summary: "Neon accent color across the fake OS.", icon: "paintpalette.fill"),
     Tweak(name: "WiggleMode", author: "mirage team", summary: "Long-press the home screen to jiggle icons.", icon: "hand.tap.fill"),
-    Tweak(name: "AniTime", author: "mirage team", summary: "Replaces the lock screen clock with an animated clock face.", icon: "clock.badge.fill"),
+    Tweak(name: "AniTime", author: "mirage team", summary: "Replaces the lock screen clock with chibi characters holding the digits.", icon: "clock.badge.fill"),
+    Tweak(name: "ClassicHomeButton", author: "mirage team", summary: "Shrinks the screen and adds a classic circular home button at the bottom.", icon: "circle.square.fill"),
 ]
 
-enum AppKind: String { case browser, placeholder }
+enum AppKind { case browser, settings, animashki, placeholder }
+enum DragKind { case closeApp, openSwitcher, lockFromTop }
+
+struct OpenApp {
+    let kind: AppKind
+    let icon: String
+    let label: String
+}
 
 final class TweakStore: ObservableObject {
     @Published var enabled: Set<UUID> = []
@@ -26,13 +34,16 @@ final class TweakStore: ObservableObject {
     @Published var stretchY: CGFloat = 1.0
     @Published var locked = true
     @Published var respringing = false
-    @Published var settingsOpen = false
     @Published var editMode = false
 
     @Published var useCustomIconColor = false
     @Published var iconColor: Color = .cyan
 
-    @Published var openedApp: (kind: AppKind, icon: String, label: String)? = nil
+    @Published var openedApp: OpenApp? = nil
+    @Published var switcherOpen = false
+
+    @Published var dragKind: DragKind? = nil
+    @Published var dragProgress: CGFloat = 0
 
     var roundIcons: Bool { isOn("RoundSpring") }
     var nightTint: Bool { isOn("NightTint") }
@@ -41,6 +52,7 @@ final class TweakStore: ObservableObject {
     var neon: Bool { isOn("NeonAccent") }
     var wiggleEnabled: Bool { isOn("WiggleMode") }
     var aniTime: Bool { isOn("AniTime") }
+    var classicHomeButton: Bool { isOn("ClassicHomeButton") }
 
     var accent: Color { neon ? Color(red: 0.6, green: 1, blue: 0.3) : .blue }
 
@@ -79,24 +91,67 @@ final class TweakStore: ObservableObject {
         withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) { locked = false }
     }
 
+    func lockNow() {
+        haptic(.light)
+        resetDrag()
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.82)) {
+            openedApp = nil
+            switcherOpen = false
+            editMode = false
+            locked = true
+        }
+    }
+
     func openApp(kind: AppKind, icon: String, label: String) {
         haptic(.light)
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
-            openedApp = (kind, icon, label)
+        resetDrag()
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
+            switcherOpen = false
+            openedApp = OpenApp(kind: kind, icon: icon, label: label)
         }
     }
 
     func closeApp() {
         haptic(.light)
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+        resetDrag()
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
             openedApp = nil
+            switcherOpen = false
         }
+    }
+
+    func openSwitcher() {
+        haptic(.light)
+        resetDrag()
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.84)) {
+            switcherOpen = true
+        }
+    }
+
+    func closeSwitcher() {
+        resetDrag()
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) {
+            switcherOpen = false
+        }
+    }
+
+    func homeButtonTap() {
+        haptic(.rigid)
+        if locked { unlock(); return }
+        if switcherOpen { closeSwitcher(); return }
+        if openedApp != nil { closeApp(); return }
+    }
+
+    func resetDrag() {
+        dragKind = nil
+        dragProgress = 0
     }
 
     func respring() {
         editMode = false
-        settingsOpen = false
         openedApp = nil
+        switcherOpen = false
+        resetDrag()
         withAnimation(.easeInOut(duration: 0.3)) { respringing = true }
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {

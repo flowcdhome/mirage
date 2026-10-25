@@ -4,7 +4,15 @@ struct SettingsView: View {
     @EnvironmentObject var store: TweakStore
 
     var body: some View {
-        NavigationStack {
+        VStack(spacing: 0) {
+            HStack {
+                Text("Settings").font(.title2).bold()
+                Spacer()
+                Button("Done") { store.closeApp() }
+            }
+            .padding()
+            .background(.ultraThinMaterial)
+
             List {
                 Section {
                     VStack(alignment: .leading) {
@@ -20,7 +28,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Display")
                 } footer: {
-                    Text("App-exit swipe zones follow this stretch - they're part of the same scaled surface.")
+                    Text("Settings is a real app now, so it stretches too, and every gesture zone follows the stretch.")
                 }
 
                 Section {
@@ -60,13 +68,9 @@ struct SettingsView: View {
                     }
                 }
             }
-            .tint(store.accent)
-            .navigationTitle("Settings")
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { store.settingsOpen = false }
-                }
-            }
+            .listStyle(.insetGrouped)
         }
+        .tint(store.accent)
+        .background(Color(.systemBackground))
     }
 }

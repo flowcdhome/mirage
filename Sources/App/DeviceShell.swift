@@ -1,46 +1,196 @@
 import SwiftUI
 
-/// The whole fake-OS surface. The stretch transform is applied here, to
-/// content that ALSO carries the gestures (unlock swipe, exit-app swipe),
-/// so every gesture's hit zone follows the visually stretched edges, not
-/// the real physical screen edges.
 struct DeviceShell: View {
     @StateObject var store = TweakStore()
 
     var body: some View {
         GeometryReader { geo in
-            ZStack {
-                Color.black.ignoresSafeArea()
+            let barHeight: CGFloat = store.classicHomeButton ? 86 : 0
+            let contentHeight = geo.size.height - barHeight
 
+            VStack(spacing: 0) {
                 ZStack {
-                    if store.locked {
-                        LockScreenView()
-                            .transition(.asymmetric(insertion: .identity, removal: .move(edge: .top)))
-                    } else {
-                        HomeScreenView()
-                            .transition(.opacity.combined(with: .scale(scale: 1.04)))
+                    Color.black
 
-                        if let app = store.openedApp {
-                            AppOverlayView(kind: app.kind, icon: app.icon, label: app.label)
-                                .transition(.move(edge: .bottom).combined(with: .opacity))
+                    ZStack {
+                        if store.locked {
+                            LockScreenView()
+                                .transition(.asymmetric(insertion: .identity, removal: .move(edge: .top)))
+                        } else {
+                            HomeScreenView()
+                                .scaleEffect(1 - (store.dragKind == .openSwitcher ? 0.07 * store.dragProgress : 0))
+
+                            if let app = store.openedApp {
+                                AppOverlayView(app: app).transition(.appLaunch)
+                            }
+
+                            if store.switcherOpen {
+                                AppSwitcherView().transition(.opacity.combined(with: .scale(scale: 1.06)))
+                            }
                         }
                     }
-                }
-                .environmentObject(store)
-                .frame(width: geo.size.width, height: geo.size.height)
-                .scaleEffect(x: store.stretchX, y: store.stretchY, anchor: .center)
-                .clipped()
-                .overlay { if store.nightTint { Color.orange.opacity(0.10).allowsHitTesting(false) } }
+                    .environmentObject(store)
+                    .frame(width: geo.size.width, height: contentHeight)
+                    .scaleEffect(x: store.stretchX, y: store.stretchY, anchor: .center)
+                    .clipped()
+                    .overlay { if store.nightTint { Color.orange.opacity(0.10).allowsHitTesting(false) } }
 
-                if store.respringing {
-                    RespringOverlay().transition(.opacity)
+                    EdgeSwipeLayer()
+                        .environmentObject(store)
+                        .frame(width: geo.size.width, height: contentHeight)
+                        .scaleEffect(x: store.stretchX, y: store.stretchY, anchor: .center)
+
+                    if store.dragKind == .lockFromTop {
+                        Color.black.opacity(0.35 * store.dragProgress).allowsHitTesting(false)
+                    }
+
+                    if store.respringing {
+                        RespringOverlay().transition(.opacity)
+                    }
+                }
+                .frame(height: contentHeight)
+                .clipped()
+
+                if store.classicHomeButton {
+                    ClassicHomeButtonBar().environmentObject(store).frame(height: barHeight)
                 }
             }
         }
         .ignoresSafeArea()
-        .sheet(isPresented: $store.settingsOpen) {
-            SettingsView().environmentObject(store)
+    }
+}
+
+extension AnyTransition {
+    static var appLaunch: AnyTransition {
+        .modifier(active: AppLaunchModifier(progress: 0), identity: AppLaunchModifier(progress: 1))
+    }
+}
+
+struct AppLaunchModifier: ViewModifier {
+    let progress: Double
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(0.84 + 0.16 * progress)
+            .opacity(progress)
+            .clipShape(RoundedRectangle(cornerRadius: (1 - progress) * 46, style: .continuous))
+    }
+}
+
+/// Lives inside the same scaleEffect transform as everything else, so edge
+/// positions follow the stretch. Only the TOP and BOTTOM strips are
+/// hit-testable, so normal taps in the middle of the screen pass through.
+struct EdgeSwipeLayer: View {
+    @EnvironmentObject var store: TweakStore
+    private let edgeZone: CGFloat = 46
+    private let commitDistance: CGFloat = 90
+
+    var body: some View {
+        VStack {
+            strip(isTop: true)
+            Spacer()
+            strip(isTop: false)
         }
+        .allowsHitTesting(!store.locked && !store.switcherOpen)
+    }
+
+    private func strip(isTop: Bool) -> some View {
+        Color.clear
+            .frame(maxWidth: .infinity)
+            .frame(height: edgeZone)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 8)
+                    .onChanged { v in handle(v, isTop: isTop, ended: false) }
+                    .onEnded { v in handle(v, isTop: isTop, ended: true) }
+            )
+    }
+
+    private func handle(_ v: DragGesture.Value, isTop: Bool, ended: Bool) {
+        if store.dragKind == nil {
+            if isTop && v.translation.height > 6 {
+                store.dragKind = .lockFromTop
+            } else if !isTop && v.translation.height < -6 {
+                store.dragKind = store.openedApp != nil ? .closeApp : .openSwitcher
+            } else {
+                return
+            }
+        }
+        guard let kind = store.dragKind else { return }
+        let raw = kind == .lockFromTop ? v.translation.height : -v.translation.height
+        store.dragProgress = min(1, max(0, raw / commitDistance))
+
+        if ended {
+            if store.dragProgress > 0.42 {
+                switch kind {
+                case .closeApp: store.closeApp()
+                case .openSwitcher: store.openSwitcher()
+                case .lockFromTop: store.lockNow()
+                }
+            } else {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) { store.resetDrag() }
+            }
+        }
+    }
+}
+
+struct AppOverlayView: View {
+    @EnvironmentObject var store: TweakStore
+    let app: OpenApp
+
+    var body: some View {
+        let closing = store.dragKind == .closeApp
+        let progress = closing ? store.dragProgress : 0
+
+        Group {
+            switch app.kind {
+            case .browser: BrowserView()
+            case .settings: SettingsView()
+            case .animashki: AnimashkiView()
+            case .placeholder: PlaceholderAppView(icon: app.icon, label: app.label)
+            }
+        }
+        .scaleEffect(1 - 0.12 * progress)
+        .clipShape(RoundedRectangle(cornerRadius: progress * 40, style: .continuous))
+        .offset(y: 50 * progress)
+        .opacity(1 - 0.25 * progress)
+    }
+}
+
+struct PlaceholderAppView: View {
+    let icon: String
+    let label: String
+    var body: some View {
+        ZStack {
+            LinearGradient(colors: [.black, .blue.opacity(0.3)], startPoint: .top, endPoint: .bottom).ignoresSafeArea()
+            VStack(spacing: 14) {
+                Image(systemName: icon).font(.system(size: 70)).foregroundStyle(.white)
+                Text(label).font(.title2).bold().foregroundStyle(.white)
+                Text("swipe up from the bottom edge to go back").font(.caption).foregroundStyle(.white.opacity(0.5))
+            }
+        }
+    }
+}
+
+struct ClassicHomeButtonBar: View {
+    @EnvironmentObject var store: TweakStore
+    @State private var pressed = false
+
+    var body: some View {
+        ZStack {
+            Color.black
+            Circle()
+                .strokeBorder(.white.opacity(0.6), lineWidth: 2)
+                .background(Circle().fill(pressed ? Color.white.opacity(0.15) : Color.clear))
+                .frame(width: 54, height: 54)
+                .scaleEffect(pressed ? 0.9 : 1)
+                .onTapGesture { store.homeButtonTap() }
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { _ in pressed = true }
+                        .onEnded { _ in pressed = false }
+                )
+        }
+        .animation(.easeOut(duration: 0.12), value: pressed)
     }
 }
 
@@ -51,74 +201,6 @@ struct RespringOverlay: View {
             VStack(spacing: 16) {
                 ProgressView().tint(.white).scaleEffect(1.8)
                 Text("Respringing…").foregroundStyle(.white.opacity(0.7)).font(.footnote)
-            }
-        }
-    }
-}
-
-/// Fullscreen "app" shown over the home screen. Swipe up starting near the
-/// bottom edge of THIS view's own (pre-stretch) frame closes it - since this
-/// view lives inside DeviceShell's scaleEffect, that edge visually sits
-/// wherever the stretch currently puts it, exactly like a real home-indicator
-/// swipe would, but tied to the stretched content instead of the real screen.
-struct AppOverlayView: View {
-    @EnvironmentObject var store: TweakStore
-    let kind: AppKind
-    let icon: String
-    let label: String
-    @State private var dragOffset: CGFloat = 0
-    @State private var closing = false
-
-    var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .bottom) {
-                Group {
-                    if kind == .browser {
-                        BrowserView()
-                    } else {
-                        PlaceholderAppView(icon: icon, label: label)
-                    }
-                }
-                .frame(width: geo.size.width, height: geo.size.height)
-
-                // Invisible edge-zone at the bottom of this view's local frame.
-                Color.clear
-                    .frame(height: 44)
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 4)
-                            .onChanged { v in
-                                guard v.startLocation.y > geo.size.height - 60 else { return }
-                                dragOffset = min(0, -v.translation.height) * -1
-                                dragOffset = max(-min(v.translation.height, 0), 0)
-                            }
-                            .onEnded { v in
-                                let startedAtEdge = v.startLocation.y > geo.size.height - 60
-                                if startedAtEdge && -v.translation.height > 70 {
-                                    store.closeApp()
-                                } else {
-                                    withAnimation(.spring) { dragOffset = 0 }
-                                }
-                            }
-                    )
-            }
-            .offset(y: -dragOffset * 0.4)
-            .scaleEffect(1 - min(dragOffset / 800, 0.08))
-        }
-    }
-}
-
-struct PlaceholderAppView: View {
-    let icon: String
-    let label: String
-    var body: some View {
-        ZStack {
-            LinearGradient(colors: [.black, .blue.opacity(0.3)], startPoint: .top, endPoint: .bottom)
-                .ignoresSafeArea()
-            VStack(spacing: 14) {
-                Image(systemName: icon).font(.system(size: 70)).foregroundStyle(.white)
-                Text(label).font(.title2).bold().foregroundStyle(.white)
-                Text("swipe up from the bottom edge to go back").font(.caption).foregroundStyle(.white.opacity(0.5))
             }
         }
     }
