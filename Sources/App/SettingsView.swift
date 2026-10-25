@@ -17,6 +17,15 @@ struct SettingsView: View {
                     }
                     Button("Snap to 4:3") { store.snapStretch43() }
                     Button("Reset stretch") { store.resetStretch() }
+                } footer: {
+                    Text("App-exit swipe zones follow this stretch - they're part of the same scaled surface.")
+                }
+
+                Section("Icons") {
+                    Toggle("Use custom icon color", isOn: $store.useCustomIconColor)
+                    if store.useCustomIconColor {
+                        ColorPicker("Icon color", selection: $store.iconColor, supportsOpacity: false)
+                    }
                 }
 
                 Section {

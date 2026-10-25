@@ -1,10 +1,29 @@
 import SwiftUI
 
+struct HomeApp: Identifiable {
+    let id = UUID()
+    let icon: String
+    let label: String
+    let kind: AppKind
+}
+
 struct HomeScreenView: View {
     @EnvironmentObject var store: TweakStore
-    let appIcons = ["message.fill", "camera.fill", "music.note", "gamecontroller.fill",
-                    "map.fill", "cart.fill", "calendar", "photo.stack.fill",
-                    "safari.fill", "envelope.fill", "clock.fill", "cloud.sun.fill"]
+
+    let apps: [HomeApp] = [
+        HomeApp(icon: "safari.fill", label: "Browser", kind: .browser),
+        HomeApp(icon: "message.fill", label: "Messages", kind: .placeholder),
+        HomeApp(icon: "camera.fill", label: "Camera", kind: .placeholder),
+        HomeApp(icon: "music.note", label: "Music", kind: .placeholder),
+        HomeApp(icon: "gamecontroller.fill", label: "Games", kind: .placeholder),
+        HomeApp(icon: "map.fill", label: "Maps", kind: .placeholder),
+        HomeApp(icon: "cart.fill", label: "Store", kind: .placeholder),
+        HomeApp(icon: "calendar", label: "Calendar", kind: .placeholder),
+        HomeApp(icon: "photo.stack.fill", label: "Photos", kind: .placeholder),
+        HomeApp(icon: "envelope.fill", label: "Mail", kind: .placeholder),
+        HomeApp(icon: "clock.fill", label: "Clock", kind: .placeholder),
+        HomeApp(icon: "cloud.sun.fill", label: "Weather", kind: .placeholder),
+    ]
     let dockIcons = ["phone.fill", "wrench.and.screwdriver.fill", "gearshape.fill"]
     let cols = Array(repeating: GridItem(.flexible(), spacing: 22), count: 4)
 
@@ -28,15 +47,20 @@ struct HomeScreenView: View {
 
                 ScrollView {
                     LazyVGrid(columns: cols, spacing: 26) {
-                        ForEach(appIcons, id: \.self) { icon(for: $0) }
-                        icon(for: "wrench.and.screwdriver.fill", isSettingsLike: true, label: "Tweaks")
-                        icon(for: "gearshape.fill", isSettings: true, label: "Settings")
+                        ForEach(apps) { a in appIcon(a) }
+                        settingsIcon
                     }
                     .padding()
                 }
 
                 HStack(spacing: 22) {
-                    ForEach(dockIcons, id: \.self) { icon(for: $0, inDock: true) }
+                    ForEach(dockIcons, id: \.self) { name in
+                        Image(systemName: name)
+                            .font(.title2)
+                            .frame(width: 50, height: 50)
+                            .foregroundStyle(.white)
+                            .background(store.iconFill, in: RoundedRectangle(cornerRadius: store.roundIcons ? 16 : 6))
+                    }
                 }
                 .padding(.vertical, 14)
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28))
@@ -51,25 +75,33 @@ struct HomeScreenView: View {
         }
     }
 
-    @ViewBuilder
-    private func icon(for name: String, isSettings: Bool = false, isSettingsLike: Bool = false,
-                       inDock: Bool = false, label: String? = nil) -> some View {
+    private func appIcon(_ a: HomeApp) -> some View {
         Button {
-            store.haptic(.light)
-            if isSettings || isSettingsLike { store.settingsOpen = true }
+            store.openApp(kind: a.kind, icon: a.icon, label: a.label)
         } label: {
             VStack(spacing: 4) {
-                Image(systemName: name)
+                Image(systemName: a.icon)
                     .font(.title2)
-                    .frame(width: inDock ? 50 : 54, height: inDock ? 50 : 54)
+                    .frame(width: 54, height: 54)
                     .foregroundStyle(.white)
-                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: store.roundIcons ? 16 : 6))
-                    .rotationEffect(.degrees(store.editMode && !inDock ? wiggleAngle() : 0))
+                    .background(store.iconFill, in: RoundedRectangle(cornerRadius: store.roundIcons ? 16 : 6))
+                    .rotationEffect(.degrees(store.editMode ? wiggleAngle() : 0))
                     .animation(store.editMode ? .easeInOut(duration: 0.14).repeatForever(autoreverses: true) : .default,
                                value: store.editMode)
-                if let label, !inDock {
-                    Text(label).font(.caption2).foregroundStyle(.white.opacity(0.8))
-                }
+                Text(a.label).font(.caption2).foregroundStyle(.white.opacity(0.8))
+            }
+        }
+    }
+
+    private var settingsIcon: some View {
+        Button { store.settingsOpen = true } label: {
+            VStack(spacing: 4) {
+                Image(systemName: "gearshape.fill")
+                    .font(.title2)
+                    .frame(width: 54, height: 54)
+                    .foregroundStyle(.white)
+                    .background(store.iconFill, in: RoundedRectangle(cornerRadius: store.roundIcons ? 16 : 6))
+                Text("Settings").font(.caption2).foregroundStyle(.white.opacity(0.8))
             }
         }
     }

@@ -16,12 +16,17 @@ struct LockScreenView: View {
 
             VStack {
                 Spacer()
-                Text(now, format: .dateTime.hour().minute())
-                    .font(.system(size: 76, weight: .thin))
-                    .foregroundStyle(.white)
+                if store.aniTime {
+                    AniTimeClockView()
+                } else {
+                    Text(now, format: .dateTime.hour().minute())
+                        .font(.system(size: 76, weight: .thin))
+                        .foregroundStyle(.white)
+                }
                 Text(now, format: .dateTime.weekday(.wide).day().month(.wide))
                     .font(.headline)
                     .foregroundStyle(.white.opacity(0.7))
+                    .padding(.top, 6)
                 if store.badge {
                     Label("jailbroken™ (not really)", systemImage: "checkmark.seal.fill")
                         .font(.caption2).foregroundStyle(.green).padding(.top, 6)

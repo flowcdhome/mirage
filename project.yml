@@ -14,6 +14,6 @@ targets:
         UILaunchScreen: {}
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.flowcdhome.mirage
-      MARKETING_VERSION: "0.2.0"
+      MARKETING_VERSION: "0.3.0"
       CURRENT_PROJECT_VERSION: "1"
       TARGETED_DEVICE_FAMILY: "1"

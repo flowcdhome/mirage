@@ -15,7 +15,10 @@ let catalog: [Tweak] = [
     Tweak(name: "JailbreakBadge", author: "mirage team", summary: "Cosmetic 'jailbroken' badge in the status bar. Not real.", icon: "checkmark.seal.fill"),
     Tweak(name: "NeonAccent", author: "mirage team", summary: "Neon accent color across the fake OS.", icon: "paintpalette.fill"),
     Tweak(name: "WiggleMode", author: "mirage team", summary: "Long-press the home screen to jiggle icons.", icon: "hand.tap.fill"),
+    Tweak(name: "AniTime", author: "mirage team", summary: "Replaces the lock screen clock with an animated clock face.", icon: "clock.badge.fill"),
 ]
+
+enum AppKind: String { case browser, placeholder }
 
 final class TweakStore: ObservableObject {
     @Published var enabled: Set<UUID> = []
@@ -26,14 +29,24 @@ final class TweakStore: ObservableObject {
     @Published var settingsOpen = false
     @Published var editMode = false
 
+    @Published var useCustomIconColor = false
+    @Published var iconColor: Color = .cyan
+
+    @Published var openedApp: (kind: AppKind, icon: String, label: String)? = nil
+
     var roundIcons: Bool { isOn("RoundSpring") }
     var nightTint: Bool { isOn("NightTint") }
     var hapticBoost: Bool { isOn("HapticBoost") }
     var badge: Bool { isOn("JailbreakBadge") }
     var neon: Bool { isOn("NeonAccent") }
     var wiggleEnabled: Bool { isOn("WiggleMode") }
+    var aniTime: Bool { isOn("AniTime") }
 
     var accent: Color { neon ? Color(red: 0.6, green: 1, blue: 0.3) : .blue }
+
+    var iconFill: AnyShapeStyle {
+        useCustomIconColor ? AnyShapeStyle(iconColor.opacity(0.4)) : AnyShapeStyle(.thinMaterial)
+    }
 
     private func isOn(_ name: String) -> Bool {
         guard let t = catalog.first(where: { $0.name == name }) else { return false }
@@ -66,9 +79,24 @@ final class TweakStore: ObservableObject {
         withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) { locked = false }
     }
 
+    func openApp(kind: AppKind, icon: String, label: String) {
+        haptic(.light)
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+            openedApp = (kind, icon, label)
+        }
+    }
+
+    func closeApp() {
+        haptic(.light)
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+            openedApp = nil
+        }
+    }
+
     func respring() {
         editMode = false
         settingsOpen = false
+        openedApp = nil
         withAnimation(.easeInOut(duration: 0.3)) { respringing = true }
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
